@@ -3,27 +3,31 @@ from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import QApplication
 from manager import Handler
 import time
-
+from serial_comm import SerialComm
+from tmc2130 import TMC2130
 
 class Ui_MainWindow(object):
 
     def __init__(self, ser, messager) -> None:
-        self.manager = None
+        self.manager_rig = None
+        self.manager_iris = None
+        self.rot_motor_driver = None
+        self.inc_motor_driver = None
         self.messager = messager
         self.repeats = 1
         self.interval = 1
         self.cmd = 0
         self.data = []
-        self.serial = ser
+        self.serial = SerialComm()
+        self.iris_serial = SerialComm()
         self.ports = []
         self.serial_baud = 115200
         self.baud_list = ["9600", "19200", "115200", "921600"]
         self.messager.signal.connect(self.set_message)
         self.connected_flag = False
+        self.iris_connected_flag = False
         self.stop_tx_flag = False
 
-
-    class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(694, 558)
@@ -38,6 +42,7 @@ class Ui_MainWindow(object):
         self.pushButton_2 = QtWidgets.QPushButton(self.centralwidget)
         self.pushButton_2.setGeometry(QtCore.QRect(400, 30, 75, 21))
         self.pushButton_2.setObjectName("pushButton_2")
+        self.pushButton_2.pressed.connect(self.connect_toPort)          #RIG CONNECT BUTTON
         self.label_2 = QtWidgets.QLabel(self.centralwidget)
         self.label_2.setGeometry(QtCore.QRect(110, 10, 141, 20))
         self.label_2.setObjectName("label_2")
@@ -87,24 +92,24 @@ class Ui_MainWindow(object):
         self.checkBox_2.setGeometry(QtCore.QRect(340, 110, 121, 18))
         self.checkBox_2.setObjectName("checkBox_2")
         self.dial_2 = QtWidgets.QDial(self.groupBox_2)
-        self.dial_2.setGeometry(QtCore.QRect(200, 100, 50, 64))
+        self.dial_2.setGeometry(QtCore.QRect(240, 100, 50, 64))
         self.dial_2.setMaximum(100)
         self.dial_2.setObjectName("dial_2")
         self.label = QtWidgets.QLabel(self.groupBox_2)
         self.label.setGeometry(QtCore.QRect(10, 10, 131, 16))
         self.label.setObjectName("label")
         self.dial = QtWidgets.QDial(self.groupBox_2)
-        self.dial.setGeometry(QtCore.QRect(200, 20, 50, 64))
+        self.dial.setGeometry(QtCore.QRect(240, 20, 50, 64))
         self.dial.setMaximum(100)
         self.dial.setObjectName("dial")
         self.label_5 = QtWidgets.QLabel(self.groupBox_2)
-        self.label_5.setGeometry(QtCore.QRect(190, 90, 91, 16))
+        self.label_5.setGeometry(QtCore.QRect(230, 90, 91, 16))
         self.label_5.setObjectName("label_5")
         self.label_3 = QtWidgets.QLabel(self.groupBox_2)
         self.label_3.setGeometry(QtCore.QRect(10, 90, 131, 16))
         self.label_3.setObjectName("label_3")
         self.label_4 = QtWidgets.QLabel(self.groupBox_2)
-        self.label_4.setGeometry(QtCore.QRect(190, 10, 81, 16))
+        self.label_4.setGeometry(QtCore.QRect(230, 10, 81, 16))
         self.label_4.setObjectName("label_4")
         self.console = QtWidgets.QListWidget(self.centralwidget)
         self.console.setGeometry(QtCore.QRect(20, 390, 661, 111))
@@ -123,13 +128,32 @@ class Ui_MainWindow(object):
         self.pushButton_5 = QtWidgets.QPushButton(self.groupBox_3)
         self.pushButton_5.setGeometry(QtCore.QRect(10, 50, 75, 21))
         self.pushButton_5.setObjectName("pushButton_5")
+        self.pushButton_5.pressed.connect(self.connect_toIris)          # IRIS CONNECT BUTTON
         self.lcdNumber = QtWidgets.QLCDNumber(self.groupBox_3)
-        self.lcdNumber.setGeometry(QtCore.QRect(40, 150, 101, 91))
+        self.lcdNumber.setGeometry(QtCore.QRect(40, 120, 101, 91))
         self.lcdNumber.setStyleSheet("background-color: rgb(255, 255, 255);")
         self.lcdNumber.setObjectName("lcdNumber")
+        self.lcdNumber_2.setGeometry(QtCore.QRect(40, 250, 101, 91))
+        self.lcdNumber_2.setStyleSheet("background-color: rgb(255, 255, 255);")
+        self.lcdNumber_2.setObjectName("lcdNumber2")
         self.label_9 = QtWidgets.QLabel(self.groupBox_3)
-        self.label_9.setGeometry(QtCore.QRect(70, 130, 47, 14))
+        self.label_9.setGeometry(QtCore.QRect(70, 100, 47, 14))
         self.label_9.setObjectName("label_9")
+        self.label_10 = QtWidgets.QLabel(self.groupBox_3)
+        self.label_10.setGeometry(QtCore.QRect(60, 230, 61, 16))
+        self.label_10.setObjectName("label_9")
+        self.radioButton = QtWidgets.QRadioButton(self.groupBox_2)
+        self.radioButton.setGeometry(QtCore.QRect(120, 40, 41, 18))
+        self.radioButton.setObjectName("radioButton")
+        self.radioButton_2 = QtWidgets.QRadioButton(self.groupBox_2)
+        self.radioButton_2.setGeometry(QtCore.QRect(170, 40, 41, 18))
+        self.radioButton_2.setObjectName("radioButton_2")
+        self.radioButton_3 = QtWidgets.QRadioButton(self.groupBox_2)
+        self.radioButton_3.setGeometry(QtCore.QRect(120, 120, 41, 18))
+        self.radioButton_3.setObjectName("radioButton_3")
+        self.radioButton_4 = QtWidgets.QRadioButton(self.groupBox_2)
+        self.radioButton_4.setGeometry(QtCore.QRect(170, 120, 41, 18))
+        self.radioButton_4.setObjectName("radioButton_4")
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
         self.menubar.setGeometry(QtCore.QRect(0, 0, 694, 22))
@@ -163,6 +187,7 @@ class Ui_MainWindow(object):
         self.groupBox_3.setTitle(_translate("MainWindow", "IRIS Connection"))
         self.pushButton_5.setText(_translate("MainWindow", "CONNECT"))
         self.label_9.setText(_translate("MainWindow", "HEADING"))
+        self.label_10.setText(_translate("MainWindow", "RIG ANGLE"))
 
     def configUI(self):
         self.comboBox_3.addItems(self.baud_list)
@@ -226,6 +251,28 @@ class Ui_MainWindow(object):
         self.comboBox_2.clear()
         self.comboBox_2.addItems(self.ports)
 
+    def connect_toIris(self):
+        if self.iris_connected_flag == False:
+            port = self.comboBox_3.currentText().split("|")[0][0:-1]
+            self.iris_serial.device = port
+            self.iris_serial.baud = self.serial_baud
+            self.iris_serial.error = None
+            self.iris_serial.serial_connect()
+            if self.iris_serial.error is not None:
+                self.log(f"Iris Connection: {self.iris_serial.error}", "red")
+                self.pushButton_5.setStyleSheet("background-color: red")
+                self.iris_connected_flag = False
+            else:
+                self.pushButton_5.setStyleSheet("background-color: green")
+                # self.manager = Handler(self.serial, self.messager)
+                self.log("Connected to Iris", "green")
+                self.iris_connected_flag = True
+        else:
+            self.log("Disconnecting from Iris", "red")
+            self.iris_serial.serial_disconnect()
+            self.iris_connected_flag = False
+            self.pushButton_5.setStyleSheet("background-color: red")
+
     def connect_toPort(self):
         if self.connected_flag == False:
             port = self.comboBox_2.currentText().split("|")[0][0:-1]
@@ -239,27 +286,26 @@ class Ui_MainWindow(object):
                 self.connected_flag = False
                 self.pushButton_3.setEnabled(False)
                 self.pushButton_4.setEnabled(False)
-                self.pushButton_stop.setEnabled(False)
-                self.pushButton_vout.setEnabled(False)
             else:
                 self.pushButton_2.setStyleSheet("background-color: green")
-                self.manager = Handler(self.serial, self.messager)
+                self.manager_rig = Handler(self.serial, self.messager)
+                self.rot_motor_driver = TMC2130(self.manager_rig, 0xB0)
+                self.inc_motor_driver = TMC2130(self.manager_rig, 0xC0)
                 self.log("Connected to Port", "green")
                 self.connected_flag = True
                 self.pushButton_3.setEnabled(True)
                 self.pushButton_4.setEnabled(True)
-                self.pushButton_stop.setEnabled(True)
-                self.pushButton_vout.setEnabled(True)
         else:
             self.log("Disconnecting from Port", "red")
             self.messager.killsignal.emit(1)
-            del self.manager
+            del self.manager_rig
+            del self.rot_motor_driver
+            del self.inc_motor_driver
             self.serial.serial_disconnect()
             self.connected_flag = False
             self.pushButton_2.setStyleSheet("background-color: red")
             self.pushButton_3.setEnabled(False)
             self.pushButton_4.setEnabled(False)
-            self.pushButton_vout.setEnabled(False)
 
 # if __name__ == "__main__":
 #     import sys

@@ -10,12 +10,11 @@ import sys
 
 if __name__ == "__main__": 
 
-    ser = SerialComm() 
     messager = Messager()
     try:
         app = QtWidgets.QApplication(sys.argv)
         MainWindow = QtWidgets.QMainWindow()
-        ui = UI(ser, messager)
+        ui = UI(messager)
         ui.setupUi(MainWindow)
         MainWindow.show()
         sys.exit(app.exec_())
