@@ -34,6 +34,7 @@ class Transmitter(object):
         self.message["data"] = self.data_tmp
         self.message["checksum"] = self.checksum
         self.message["etx"] = 3
+        print(self.message)
 
     def calc_checksum_tx(self):
         checksum = 0
@@ -213,7 +214,7 @@ class Receiver(object):
             self.messager.signal.emit(f"GNSS Quality: {str(data)}")
 
 class Handler(Transmitter, Receiver):
-    def __init__(self, serial, messager) -> None:
+    def __init__(self, serial, messager, iris_flag = False) -> None:
         super(Handler,self).__init__(serial, messager)
         self.serial = serial
         self.payload = []
@@ -227,7 +228,9 @@ class Handler(Transmitter, Receiver):
         self.killflag = 0
         self.stop_tx_flag = False
         self.tx_th_lock = False
+        self.iris_flag = iris_flag
         Thread(target=self.read_serial,args=[]).start()
+       
 
     def set_max_repeats(self, max_repeats):
         self.max_repeats = max_repeats
@@ -242,44 +245,56 @@ class Handler(Transmitter, Receiver):
     def read_serial(self):
         while (self.killflag == 0):
             if self.serial.in_waiting():
-                r =  bytes.hex(self.serial.read_all(), " ")
-                self.packet = r.split(" ")
-                if self.packet != []:
-                    if self.packet[0] == "06":
-                        self.messager.signal.emit("| ACK |")
-                        del self.packet[0]
-                        del self.packet[0]
-                    elif self.packet[0] == "15":
-                        self.messager.signal.emit("| NACK |")
-                        del self.packet[0]
-                        del self.packet[0]
-                    # while (self.packet[0] != "02"):
-                    #     del self.packet[0]
+                if self.iris_flag == True:
+                    mes = self.ser.read_serial()
+                    mes = mes.decode("utf-8")
+                    if "Yaw" in mes:
+                        yaw = mes.split("=")
+                        yaw = yaw[1].strip("\r\n")
+                        self.messager.yaw.emit(yaw)
+                    if "Pitch" in mes:
+                        pitch = mes.split("=")
+                        pitch = pitch[1].strip("\r\n")
+                        self.messager.pitch.emit(pitch)
+                else:
+                    r =  bytes.hex(self.serial.read_all(), " ")
+                    self.packet = r.split(" ")
                     if self.packet != []:
-                        print(self.packet)
-                        try:
-                            for i in range(0,len(self.packet)):
-                                if self.packet[i] == "1b" and self.packet[i+1] in self.special_chars:
-                                    pass
-                                else:
-                                    self.payload.append(ord(chr(int(self.packet[i], 16))))
-                        except:
-                            pass                            
-                        if self.payload != []:
+                        if self.packet[0] == "06":
+                            self.messager.signal.emit("| ACK |")
+                            del self.packet[0]
+                            del self.packet[0]
+                        elif self.packet[0] == "15":
+                            self.messager.signal.emit("| NACK |")
+                            del self.packet[0]
+                            del self.packet[0]
+                        # while (self.packet[0] != "02"):
+                        #     del self.packet[0]
+                        if self.packet != []:
+                            print(self.packet)
                             try:
-                                self.parse(self.payload)
-                                self.messager.signal.emit(f"Received Message = {self.message}")
-                                self.calc_checksum()
-                                # print(self.checksum[3], "d")
-                                # if self.checksum[3] == msg_payload:
-                                mess = bytes([6,self.TOKEN])
-                                self.serial.write_serial(mess)
-                                # else:
-                                #     mess = bytes([15,self.TOKEN])
-                                #     self.serial.write_serial(mess)
-                                self.parse_command()
-                            except Exception as e:
-                                self.messager.signal.emit(f"Failed to parse message: {str(e)}")
+                                for i in range(0,len(self.packet)):
+                                    if self.packet[i] == "1b" and self.packet[i+1] in self.special_chars:
+                                        pass
+                                    else:
+                                        self.payload.append(ord(chr(int(self.packet[i], 16))))
+                            except:
+                                pass                            
+                            if self.payload != []:
+                                try:
+                                    self.parse(self.payload)
+                                    self.messager.signal.emit(f"Received Message = {self.message}")
+                                    self.calc_checksum()
+                                    # print(self.checksum[3], "d")
+                                    # if self.checksum[3] == msg_payload:
+                                    mess = bytes([6,self.TOKEN])
+                                    self.serial.write_serial(mess)
+                                    # else:
+                                    #     mess = bytes([15,self.TOKEN])
+                                    #     self.serial.write_serial(mess)
+                                    self.parse_command()
+                                except Exception as e:
+                                    self.messager.signal.emit(f"Failed to parse message: {str(e)}")
                 self.repeats+=1  
             self.payload = []
 
@@ -288,12 +303,16 @@ class Handler(Transmitter, Receiver):
             return
         Thread(target=self.repeated_tx,args=[]).start()
 
-    def transmit_message(self):
-        self.construct_message()
-        self.calc_checksum_tx()
-        self.data_add_esc()
-        self.construct_message()
-        self.send_message() 
+    def transmit_message(self, cmd=None):
+        if self.iris_flag == True:
+            cmd = cmd.encode('utf-8')
+            self.serial.write_serial(cmd)
+        else:
+            self.construct_message()
+            self.calc_checksum_tx()
+            self.data_add_esc()
+            self.construct_message()
+            self.send_message() 
 
     def repeated_tx(self):
         print("Start repeated TX")
@@ -305,34 +324,4 @@ class Handler(Transmitter, Receiver):
         self.tx_th_lock = False
         self.stop_tx_flag = False
             
-    # def transmit(self):
-    #     kb = Keyboard()
-    #     while (self.received_flag == False):
-    #         self.construct_message()
-    #         self.calc_checksum_tx()
-    #         self.data_add_esc()
-    #         self.construct_message()
-    #         self.send_message()
-    #         if self.repeats > self.max_repeats:
-    #             break
-    #         if kb.kbhit():
-    #             c = kb.getch()
-    #             if ord(c) == 27: # ESC
-    #                 print(c)
-    #                 break
-    #         time.sleep(self.repeat_interval)
-    #     os._exit(-1)
-
-    # def listen(self):
-    #     kb = Keyboard()
-    #     while 1:
-    #         if kb.kbhit():
-    #             c = kb.getch()
-    #             if ord(c) == 27: # ESC
-    #                 print(c)
-    #                 break
-    #         time.sleep(0.5)
-
-    
-
 

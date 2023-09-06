@@ -4,14 +4,18 @@ class TMC2130(object):
         self.initial_angle = 0
         self.address = addr
         self.manager = manager
+        self.direction = 0
 
     def setAddress(self, address):
         self.address = address
 
     def setInitAngle(self, angle):
         self.initial_angle = angle
+    
+    def setDirection(self, direction):
+        self.direction = direction
 
-    def rotate(self, speed, direction, angle):
+    def rotate(self, speed, angle):
         if angle > 360:
             angle = 360
         if angle < 0:
@@ -19,7 +23,7 @@ class TMC2130(object):
         angle = int(angle * 142.22222)
         speed = [speed & 0xff, (speed >> 8) & 0xff,]
         steps = [angle & 0xff, (angle >> 8) & 0xff]
-        dir = [direction & 0xff, (direction >> 8) & 0xff]
+        dir = [self.direction & 0xff, (self.direction >> 8) & 0xff]
         dc = [32, 0]
         data = steps + dir + speed + dc
         self.manager.set_tx_data(data)

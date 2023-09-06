@@ -2,8 +2,8 @@ from serial_comm import SerialComm
 import time
 import os
 from PyQt5 import QtWidgets
-from iris_emulator import Messager
-from iris_emulator import Ui_MainWindow as UI
+from rotation_rig import Ui_MainWindow as UI
+from rotation_rig import Messager
 import sys
 
 
