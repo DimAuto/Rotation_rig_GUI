@@ -33,6 +33,8 @@ class Ui_MainWindow(object):
         self.inc_direction = 0
         self.rot_angle_hist = 0
         self.inc_angle_hist = 0
+        self.inc_speed = 50
+        self.rot_speed = 50
         self.messager.yaw.connect(self.set_yaw)
 
     def setupUi(self, MainWindow):
@@ -157,12 +159,12 @@ class Ui_MainWindow(object):
         self.radioButton_3.setGeometry(QtCore.QRect(10, 20, 100, 18))
         self.radioButton_3.setMinimumSize(QtCore.QSize(100, 0))
         self.radioButton_3.setObjectName("radioButton_3")
-        self.radioButton_3.toggled.connect(self.inc_motor_state)            # INC motor change direction
+        self.radioButton_3.toggled.connect(self.inc_setDirection)            # INC motor change direction
         self.radioButton_4 = QtWidgets.QRadioButton(self.groupBox_4)
         self.radioButton_4.setGeometry(QtCore.QRect(10, 50, 100, 18))
         self.radioButton_4.setMinimumSize(QtCore.QSize(100, 0))
         self.radioButton_4.setObjectName("radioButton_4")
-        self.radioButton_4.toggled.connect(self.inc_motor_state)            # INC motor change direction
+        self.radioButton_4.toggled.connect(self.inc_setDirection)            # INC motor change direction
         self.gridLayout.addWidget(self.groupBox_4, 4, 1, 1, 1)
         self.groupBox_2 = QtWidgets.QGroupBox(self.centralwidget)
         self.groupBox_2.setTitle("")
@@ -171,12 +173,12 @@ class Ui_MainWindow(object):
         self.radioButton_2.setGeometry(QtCore.QRect(10, 60, 100, 18))
         self.radioButton_2.setMinimumSize(QtCore.QSize(100, 0))
         self.radioButton_2.setObjectName("radioButton_2")
-        self.radioButton_2.toggled.connect(self.rot_motor_state)            # Rot motor change direction
+        self.radioButton_2.toggled.connect(self.rot_setDirection)            # Rot motor change direction
         self.radioButton = QtWidgets.QRadioButton(self.groupBox_2)
         self.radioButton.setGeometry(QtCore.QRect(10, 30, 100, 18))
         self.radioButton.setMinimumSize(QtCore.QSize(100, 0))
         self.radioButton.setObjectName("radioButton")
-        self.radioButton.toggled.connect(self.rot_motor_state)            # Rot motor change direction
+        self.radioButton.toggled.connect(self.rot_setDirection)            # Rot motor change direction
         self.gridLayout.addWidget(self.groupBox_2, 2, 1, 1, 1)
         self.line_5 = QtWidgets.QFrame(self.centralwidget)
         self.line_5.setFrameShape(QtWidgets.QFrame.HLine)
@@ -432,18 +434,24 @@ class Ui_MainWindow(object):
         inc_angle = int(self.spinBox_2.value())
         if self.rot_direction == 1:
             rot_angle *= -1
+            self.rot_setDirection = 1
+        else:
+            self.rot_direction = 0
         if self.inc_direction == 1:
             inc_angle *= -1
-        if (self.inc_angle_hist + inc_angle) in range(-40,40):
+            self.inc_setDirection = 1
+        else:
+            self.inc_setDirection = 0
+        if (self.inc_angle_hist + inc_angle) in range(-40,40) and inc_angle != 0:
             self.inc_motor_driver.rotate(self.inc_speed, inc_angle)
         else:
             inc_angle = 0
-        if (self.rot_angle_hist + rot_angle) in range(-360,360):
+        if (self.rot_angle_hist + rot_angle) in range(-360,360) and rot_angle != 0:
             self.rot_motor_driver.rotate(self.rot_speed, rot_angle)
         else:
             rot_angle = 0
         self.update_history(rot_angle, inc_angle)
-        Thread(target=self.transmit_iris_cmd,args=[]).start()
+        # Thread(target=self.transmit_iris_cmd,args=[]).start()
 
     def set_yaw(self, message):
         self.lcdNumber.display(message)
